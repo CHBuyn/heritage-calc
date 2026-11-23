@@ -118,4 +118,548 @@
               <th class="border border-slate-600 py-2.5 px-2 text-right w-22">적용요율(%)</th>
               <th class="border border-slate-600 py-2.5 px-2.5 text-right w-32 bg-slate-900">예상 공제료(원)</th>
               <th class="border border-slate-600 py-2.5 px-2.5 text-right w-32">자기부담금 상한(원)</th>
-              <th class="no-print border border-slate-600 py-2.5 px-2 w-12 text-
+              <th class="no-print border border-slate-600 py-2.5 px-2 w-12 text-center">삭제</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+          <tfoot>
+            <tr class="bg-emerald-50 font-bold text-slate-900 border-t-2 border-slate-800">
+              <td colspan="4" class="border border-slate-300 py-3 px-3 text-center" id="footCountLabel">합 계 (총 3건)</td>
+              <td class="border border-slate-300 py-3 px-2.5 text-right" id="footContractSum">545,000,000</td>
+              <td class="border border-slate-300 py-3 px-2 text-center text-slate-400">-</td>
+              <td class="border border-slate-300 py-3 px-2 text-center text-slate-400">-</td>
+              <td class="border border-slate-300 py-3 px-2 text-center text-slate-400">-</td>
+              <td class="border border-slate-300 py-3 px-2 text-center text-slate-400">-</td>
+              <td class="border border-slate-300 py-3 px-2 text-center text-slate-400">-</td>
+              <td class="border border-slate-300 py-3 px-2.5 text-right text-emerald-700 text-base" id="footFeeSum">3,358,050</td>
+              <td class="border border-slate-300 py-3 px-2.5 text-right" id="footDeductibleSum">5,450,000</td>
+              <td class="no-print border border-slate-300 py-3 px-2"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- 하단 주석 -->
+      <div class="mt-4 text-xs text-slate-500 space-y-1">
+        <p>※ 가입기간은 용역 종료일이 아닌 <strong>국가유산 수리 완료일까지</strong>로 설정해야 합니다. (시행령 제18조의4제2항)</p>
+        <p>※ 엑셀 다운로드 파일은 <strong>[산출내역서]</strong> 시트와 <strong>[요율기준표]</strong> 시트가 실시간 수식(<code>=INDEX/MATCH</code>, <code>=ROUND</code>, <code>=SUM</code>)으로 연결되어 있습니다.</p>
+      </div>
+    </div>
+
+    <!-- 요율 기준표 안내 -->
+    <div class="no-print mt-6 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h3 class="text-sm font-bold text-slate-800 mb-3">📌 적용 요율 및 기간할증계수 기준표 (엑셀 '요율기준표' 시트 자동 탑재)</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+        <div>
+          <div class="font-semibold text-slate-700 mb-1.5">1. 세부 유형별 1년(365일) 기본요율</div>
+          <table class="w-full border-collapse border border-slate-200">
+            <thead>
+              <tr class="bg-slate-100 text-slate-700">
+                <th class="border border-slate-200 py-1.5 px-2 text-center">구분</th>
+                <th class="border border-slate-200 py-1.5 px-2 text-left">세부 유형</th>
+                <th class="border border-slate-200 py-1.5 px-2 text-right">기본요율(%)</th>
+              </tr>
+            </thead>
+            <tbody id="refRateBody"></tbody>
+          </table>
+        </div>
+        <div>
+          <div class="font-semibold text-slate-700 mb-1.5">2. 가입기간별 할증계수 및 자기부담금 기준</div>
+          <table class="w-full border-collapse border border-slate-200">
+            <thead>
+              <tr class="bg-slate-100 text-slate-700">
+                <th class="border border-slate-200 py-1.5 px-2 text-left">가입기간 구간</th>
+                <th class="border border-slate-200 py-1.5 px-2 text-right">하한 일수</th>
+                <th class="border border-slate-200 py-1.5 px-2 text-right">기간계수</th>
+              </tr>
+            </thead>
+            <tbody id="refFactorBody"></tbody>
+          </table>
+          <div class="mt-2 p-2.5 bg-slate-50 rounded border border-slate-200 text-slate-600">
+            • <strong>자기부담금 상한</strong>: 순계약금액의 <strong>1.0%</strong> (최대 5,000,000원 한도)
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const RATE_TABLE = [
+      { category: "설계", subType: "실측설계 (보수·정비·복원)", baseRate: 0.395, note: "1년(365일) 기준 기본요율" },
+      { category: "설계", subType: "정밀실측설계", baseRate: 0.410, note: "국보·보물 등 정밀실측 기준" },
+      { category: "감리", subType: "일반 비상주감리", baseRate: 0.409, note: "1년(365일) 기준 기본요율" },
+      { category: "감리", subType: "권역별 비상주감리", baseRate: 0.420, note: "다수 현장 통합 비상주감리" },
+      { category: "감리", subType: "책임감리", baseRate: 0.450, note: "1년(365일) 기준 기본요율" },
+      { category: "감리", subType: "상주감리", baseRate: 0.440, note: "단독 상주감리 기준" },
+      { category: "설계·감리", subType: "일괄(설계+감리) 용역", baseRate: 0.465, note: "설계·감리 통합 발주 건" }
+    ];
+
+    const FACTOR_TABLE = [
+      { label: "1년(365일) 이하", minDays: 0, factor: 1.00 },
+      { label: "1년 초과 ~ 1.5년(548일)", minDays: 366, factor: 1.20 },
+      { label: "1.5년 초과 ~ 2년(730일 미만)", minDays: 549, factor: 1.35 },
+      { label: "2년(730일) ~ 2.5년", minDays: 730, factor: 1.50 },
+      { label: "2.5년 초과 ~ 3년", minDays: 913, factor: 1.65 },
+      { label: "3년 초과", minDays: 1096, factor: 1.80 }
+    ];
+
+    const DEDUCTIBLE_RATE = 0.01;
+    const DEDUCTIBLE_CAP = 5000000;
+
+    let items = [
+      { category: "설계", name: "OO서원 보수정비 실측설계용역", subType: "실측설계 (보수·정비·복원)", amount: 100000000, days: 540 },
+      { category: "감리", name: "OO고택 지붕보수 비상주감리", subType: "일반 비상주감리", amount: 45000000, days: 365 },
+      { category: "감리", name: "OO사 대웅전 해체보수 책임감리", subType: "책임감리", amount: 400000000, days: 730 }
+    ];
+
+    function getFormattedDate(dotFormat = true) {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      return dotFormat ? `${y}. ${m}. ${d}.` : `${y}${m}${d}`;
+    }
+    document.getElementById('printDate').innerText = `출력일: ${getFormattedDate(true)}`;
+
+    function calculateRow(item) {
+      const rateObj = RATE_TABLE.find(r => r.subType === item.subType) || RATE_TABLE[0];
+      const baseRate = rateObj.baseRate;
+
+      let factor = 1.00;
+      for (let i = FACTOR_TABLE.length - 1; i >= 0; i--) {
+        if (item.days >= FACTOR_TABLE[i].minDays) {
+          factor = FACTOR_TABLE[i].factor;
+          break;
+        }
+      }
+
+      const months = Math.round((item.days / 30) * 10) / 10;
+      const appliedRate = Math.round(baseRate * factor * 1000) / 1000;
+      const rawFee = item.amount * (appliedRate / 100);
+      const fee = Math.round(rawFee / 10) * 10;
+      const deductible = Math.min(Math.round(item.amount * DEDUCTIBLE_RATE), DEDUCTIBLE_CAP);
+
+      return { category: rateObj.category, months, baseRate, factor, appliedRate, fee, deductible };
+    }
+
+    function formatNumber(num) {
+      return Number(num || 0).toLocaleString('ko-KR');
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+
+      let totalContract = 0;
+      let totalFee = 0;
+      let totalDeductible = 0;
+
+      items.forEach((item, idx) => {
+        const calc = calculateRow(item);
+        item.category = calc.category;
+
+        totalContract += Number(item.amount || 0);
+        totalFee += calc.fee;
+        totalDeductible += calc.deductible;
+
+        const optionsHtml = RATE_TABLE.map(r =>
+          `<option value="${r.subType}" ${r.subType === item.subType ? 'selected' : ''}>${r.subType}</option>`
+        ).join('');
+
+        const tr = document.createElement('tr');
+        tr.className = idx % 2 === 1 ? 'bg-slate-50' : 'bg-white';
+        tr.innerHTML = `
+          <td class="border border-slate-300 py-2 px-2 text-center font-medium">${idx + 1}</td>
+          <td class="border border-slate-300 py-2 px-2 text-center">${calc.category}</td>
+          <td class="border border-slate-300 py-1.5 px-2">
+            <input type="text" value="${item.name}" onchange="updateItem(${idx}, 'name', this.value)"
+              class="w-full px-2 py-1 border border-slate-200 rounded text-sm focus:outline-none focus:border-emerald-500" />
+          </td>
+          <td class="border border-slate-300 py-1.5 px-2">
+            <select onchange="updateItem(${idx}, 'subType', this.value)"
+              class="w-full px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:outline-none focus:border-emerald-500">
+              ${optionsHtml}
+            </select>
+          </td>
+          <td class="border border-slate-300 py-1.5 px-2">
+            <input type="number" step="100000" value="${item.amount}" onchange="updateItem(${idx}, 'amount', Number(this.value))"
+              class="w-full px-2 py-1 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-emerald-500" />
+          </td>
+          <td class="border border-slate-300 py-1.5 px-2">
+            <input type="number" step="1" min="1" value="${item.days}" onchange="updateItem(${idx}, 'days', Number(this.value))"
+              class="w-full px-2 py-1 border border-slate-200 rounded text-sm text-right focus:outline-none focus:border-emerald-500" />
+          </td>
+          <td class="border border-slate-300 py-2 px-2 text-right text-slate-600">${calc.months.toFixed(1)}</td>
+          <td class="border border-slate-300 py-2 px-2 text-right text-slate-600">${calc.baseRate.toFixed(3)}</td>
+          <td class="border border-slate-300 py-2 px-2 text-right text-slate-600">${calc.factor.toFixed(2)}</td>
+          <td class="border border-slate-300 py-2 px-2 text-right font-medium text-slate-800">${calc.appliedRate.toFixed(3)}</td>
+          <td class="border border-slate-300 py-2 px-2.5 text-right font-bold text-slate-900 bg-emerald-50/40">${formatNumber(calc.fee)}</td>
+          <td class="border border-slate-300 py-2 px-2.5 text-right text-slate-700">${formatNumber(calc.deductible)}</td>
+          <td class="no-print border border-slate-300 py-1.5 px-2 text-center">
+            <button onclick="removeRow(${idx})" class="text-rose-500 hover:text-rose-700 font-bold px-2 py-0.5 rounded" title="행 삭제">✕</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('footCountLabel').innerText = `합 계 (총 ${items.length}건)`;
+      document.getElementById('footContractSum').innerText = formatNumber(totalContract);
+      document.getElementById('footFeeSum').innerText = formatNumber(totalFee);
+      document.getElementById('footDeductibleSum').innerText = formatNumber(totalDeductible);
+
+      document.getElementById('cardCount').innerText = `${items.length}건`;
+      document.getElementById('cardContractSum').innerText = `${formatNumber(totalContract)}원`;
+      document.getElementById('cardFeeSum').innerText = `${formatNumber(totalFee)}원`;
+      document.getElementById('cardDeductibleSum').innerText = `${formatNumber(totalDeductible)}원`;
+    }
+
+    function updateItem(idx, key, val) {
+      items[idx][key] = val;
+      renderTable();
+    }
+
+    function addRow() {
+      items.push({
+        category: "감리",
+        name: "신규 국가유산 수리 감리용역",
+        subType: "일반 비상주감리",
+        amount: 50000000,
+        days: 365
+      });
+      renderTable();
+    }
+
+    function removeRow(idx) {
+      if (items.length <= 1) {
+        alert("최소 1건 이상의 사업 내역이 필요합니다.");
+        return;
+      }
+      items.splice(idx, 1);
+      renderTable();
+    }
+
+    function renderRefTables() {
+      const rateBody = document.getElementById('refRateBody');
+      rateBody.innerHTML = RATE_TABLE.map(r => `
+        <tr>
+          <td class="border border-slate-200 py-1.5 px-2 text-center">${r.category}</td>
+          <td class="border border-slate-200 py-1.5 px-2">${r.subType}</td>
+          <td class="border border-slate-200 py-1.5 px-2 text-right font-semibold">${r.baseRate.toFixed(3)}%</td>
+        </tr>
+      `).join('');
+
+      const factorBody = document.getElementById('refFactorBody');
+      factorBody.innerHTML = FACTOR_TABLE.map(f => `
+        <tr>
+          <td class="border border-slate-200 py-1.5 px-2">${f.label}</td>
+          <td class="border border-slate-200 py-1.5 px-2 text-right">${f.minDays}일 이상</td>
+          <td class="border border-slate-200 py-1.5 px-2 text-right font-semibold">${f.factor.toFixed(2)}</td>
+        </tr>
+      `).join('');
+    }
+
+    async function downloadExcelWithFormulas() {
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = '서홍기술건축사사무소';
+      workbook.created = new Date();
+
+      const thinBorder = {
+        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+      };
+      const headerBorder = {
+        top: { style: 'medium', color: { argb: 'FF1E293B' } },
+        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        bottom: { style: 'medium', color: { argb: 'FF1E293B' } },
+        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+      };
+      const totalBorder = {
+        top: { style: 'medium', color: { argb: 'FF1E293B' } },
+        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        bottom: { style: 'double', color: { argb: 'FF1E293B' } },
+        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+      };
+
+      const ws1 = workbook.addWorksheet('산출내역서', {
+        pageSetup: {
+          paperSize: 9,
+          orientation: 'landscape',
+          fitToPage: true,
+          fitToWidth: 1,
+          fitToHeight: 0,
+          margins: { left: 0.787, right: 0.787, top: 0.787, bottom: 0.394, header: 0.3, footer: 0.3 }
+        }
+      });
+
+      ws1.mergeCells('A1:L1');
+      ws1.getCell('A1').value = '국가유산수리 손해배상책임공제료 산출내역서';
+      ws1.getCell('A1').font = { name: '맑은 고딕', size: 15, bold: true, color: { argb: 'FF111827' } };
+      ws1.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+      ws1.getRow(1).height = 30;
+
+      ws1.mergeCells('A2:L2');
+      ws1.getCell('A2').value = `근거: 「국가유산수리 등에 관한 법률」 제34조의2, 시행령 제18조의4, 고시 제2026-149호  |  출력일: ${getFormattedDate(true)}`;
+      ws1.getCell('A2').font = { name: '맑은 고딕', size: 9.5, color: { argb: 'FF4B5563' } };
+      ws1.getCell('A2').alignment = { horizontal: 'right', vertical: 'middle' };
+      ws1.getRow(2).height = 20;
+      ws1.getRow(3).height = 8;
+
+      const headers1 = [
+        '순번', '구분', '사업명 / 계약명', '세부 유형',
+        '순계약금액(원)', '가입기간(일)', '환산(개월)',
+        '기본요율(%)', '기간할증계수', '적용요율(%)',
+        '예상 공제료(원)', '자기부담금 상한(원)'
+      ];
+      const headerRow1 = ws1.getRow(4);
+      headerRow1.height = 28;
+      headers1.forEach((h, i) => {
+        const cell = headerRow1.getCell(i + 1);
+        cell.value = h;
+        cell.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        cell.border = headerBorder;
+      });
+
+      const rateEndRow = 4 + RATE_TABLE.length;
+      const factorEndRow = 4 + FACTOR_TABLE.length;
+
+      items.forEach((item, idx) => {
+        const r = 5 + idx;
+        const calc = calculateRow(item);
+        const row = ws1.getRow(r);
+        row.height = 24;
+
+        row.getCell(1).value = idx + 1;
+        row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+        row.getCell(2).value = {
+          formula: `INDEX(요율기준표!$A$5:$A$${rateEndRow}, MATCH(D${r}, 요율기준표!$B$5:$B$${rateEndRow}, 0))`,
+          result: calc.category
+        };
+        row.getCell(2).alignment = { horizontal: 'center', vertical: 'middle' };
+
+        row.getCell(3).value = item.name;
+        row.getCell(3).alignment = { horizontal: 'left', vertical: 'middle' };
+
+        row.getCell(4).value = item.subType;
+        row.getCell(4).alignment = { horizontal: 'left', vertical: 'middle' };
+
+        row.getCell(5).value = Number(item.amount);
+        row.getCell(5).numFmt = '#,##0';
+        row.getCell(5).alignment = { horizontal: 'right', vertical: 'middle' };
+
+        row.getCell(6).value = Number(item.days);
+        row.getCell(6).numFmt = '#,##0';
+        row.getCell(6).alignment = { horizontal: 'right', vertical: 'middle' };
+
+        row.getCell(7).value = { formula: `ROUND(F${r}/30, 1)`, result: calc.months };
+        row.getCell(7).numFmt = '0.0';
+        row.getCell(7).alignment = { horizontal: 'right', vertical: 'middle' };
+
+        row.getCell(8).value = {
+          formula: `INDEX(요율기준표!$C$5:$C$${rateEndRow}, MATCH(D${r}, 요율기준표!$B$5:$B$${rateEndRow}, 0))`,
+          result: calc.baseRate
+        };
+        row.getCell(8).numFmt = '0.000';
+        row.getCell(8).alignment = { horizontal: 'right', vertical: 'middle' };
+
+        row.getCell(9).value = {
+          formula: `INDEX(요율기준표!$G$5:$G$${factorEndRow}, MATCH(F${r}, 요율기준표!$F$5:$F$${factorEndRow}, 1))`,
+          result: calc.factor
+        };
+        row.getCell(9).numFmt = '0.00';
+        row.getCell(9).alignment = { horizontal: 'right', vertical: 'middle' };
+
+        row.getCell(10).value = { formula: `ROUND(H${r}*I${r}, 3)`, result: calc.appliedRate };
+        row.getCell(10).numFmt = '0.000';
+        row.getCell(10).alignment = { horizontal: 'right', vertical: 'middle' };
+
+        row.getCell(11).value = { formula: `ROUND(E${r}*(J${r}/100), -1)`, result: calc.fee };
+        row.getCell(11).numFmt = '#,##0';
+        row.getCell(11).alignment = { horizontal: 'right', vertical: 'middle' };
+
+        row.getCell(12).value = {
+          formula: `MIN(ROUND(E${r}*요율기준표!$C$14, 0), 요율기준표!$C$15)`,
+          result: calc.deductible
+        };
+        row.getCell(12).numFmt = '#,##0';
+        row.getCell(12).alignment = { horizontal: 'right', vertical: 'middle' };
+
+        for (let c = 1; c <= 12; c++) {
+          const cell = row.getCell(c);
+          cell.font = { name: '맑은 고딕', size: 10, bold: (c === 11), color: { argb: 'FF111827' } };
+          cell.border = thinBorder;
+          if (idx % 2 === 1) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+          }
+        }
+      });
+
+      const lastDataRow = 4 + items.length;
+      const totalRowIdx = lastDataRow + 1;
+      const totalRow = ws1.getRow(totalRowIdx);
+      totalRow.height = 26;
+
+      ws1.mergeCells(`A${totalRowIdx}:D${totalRowIdx}`);
+      totalRow.getCell(1).value = `합 계 (총 ${items.length}건)`;
+      totalRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+      const sumContract = items.reduce((acc, cur) => acc + Number(cur.amount || 0), 0);
+      const sumFee = items.reduce((acc, cur) => acc + calculateRow(cur).fee, 0);
+      const sumDed = items.reduce((acc, cur) => acc + calculateRow(cur).deductible, 0);
+
+      totalRow.getCell(5).value = { formula: `SUM(E5:E${lastDataRow})`, result: sumContract };
+      totalRow.getCell(5).numFmt = '#,##0';
+      totalRow.getCell(5).alignment = { horizontal: 'right', vertical: 'middle' };
+
+      totalRow.getCell(11).value = { formula: `SUM(K5:K${lastDataRow})`, result: sumFee };
+      totalRow.getCell(11).numFmt = '#,##0';
+      totalRow.getCell(11).alignment = { horizontal: 'right', vertical: 'middle' };
+
+      totalRow.getCell(12).value = { formula: `SUM(L5:L${lastDataRow})`, result: sumDed };
+      totalRow.getCell(12).numFmt = '#,##0';
+      totalRow.getCell(12).alignment = { horizontal: 'right', vertical: 'middle' };
+
+      for (let c = 1; c <= 12; c++) {
+        const cell = totalRow.getCell(c);
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECFDF5' } };
+        cell.border = totalBorder;
+        cell.font = {
+          name: '맑은 고딕',
+          size: 10.5,
+          bold: true,
+          color: { argb: (c === 11) ? 'FF059669' : 'FF111827' }
+        };
+      }
+
+      const noteRow1 = totalRowIdx + 2;
+      ws1.mergeCells(`A${noteRow1}:L${noteRow1}`);
+      ws1.getCell(`A${noteRow1}`).value = "※ 모든 산출 셀(환산개월·기본요율·기간계수·적용요율·예상공제료·자기부담금·합계)은 '요율기준표' 시트와 실시간 수식으로 연동되어 있습니다.";
+      ws1.getCell(`A${noteRow1}`).font = { name: '맑은 고딕', size: 9, color: { argb: 'FF4B5563' } };
+
+      const noteRow2 = totalRowIdx + 3;
+      ws1.mergeCells(`A${noteRow2}:L${noteRow2}`);
+      ws1.getCell(`A${noteRow2}`).value = "※ 가입기간은 용역 종료일이 아닌 국가유산 수리 완료일까지로 설정해야 합니다. (시행령 제18조의4제2항)  |  실제 공제료는 공제조합 최종 심사 결과에 따릅니다.";
+      ws1.getCell(`A${noteRow2}`).font = { name: '맑은 고딕', size: 9, color: { argb: 'FF4B5563' } };
+
+      [7, 9, 30, 26, 17, 13, 12, 13, 13, 13, 17, 19].forEach((w, i) => { ws1.getColumn(i + 1).width = w; });
+
+      const ws2 = workbook.addWorksheet('요율기준표', {
+        pageSetup: {
+          paperSize: 9,
+          orientation: 'landscape',
+          fitToPage: true,
+          fitToWidth: 1,
+          fitToHeight: 1,
+          margins: { left: 0.787, right: 0.787, top: 0.787, bottom: 0.394, header: 0.3, footer: 0.3 }
+        }
+      });
+
+      ws2.mergeCells('A1:G1');
+      ws2.getCell('A1').value = '국가유산수리 손해배상책임공제 요율 및 기간계수 기준표 (참조 DB)';
+      ws2.getCell('A1').font = { name: '맑은 고딕', size: 15, bold: true, color: { argb: 'FF111827' } };
+      ws2.getRow(1).height = 28;
+
+      ws2.mergeCells('A2:G2');
+      ws2.getCell('A2').value = "근거: 국가유산청 고시 제2026-149호 (본 시트의 요율·계수를 수정하면 '산출내역서' 시트의 금액이 자동 재계산됩니다.)";
+      ws2.getCell('A2').font = { name: '맑은 고딕', size: 9.5, color: { argb: 'FF4B5563' } };
+      ws2.getRow(2).height = 18;
+      ws2.getRow(3).height = 8;
+
+      const h2Row = ws2.getRow(4);
+      h2Row.height = 25;
+      ['구분', '세부 유형 (매칭 키)', '기본요율(%)', '비고'].forEach((t, i) => {
+        const c = h2Row.getCell(i + 1);
+        c.value = t;
+        c.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+        c.alignment = { horizontal: 'center', vertical: 'middle' };
+        c.border = headerBorder;
+      });
+
+      RATE_TABLE.forEach((rt, idx) => {
+        const r = ws2.getRow(5 + idx);
+        r.height = 22;
+        r.getCell(1).value = rt.category;
+        r.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+        r.getCell(2).value = rt.subType;
+        r.getCell(2).alignment = { horizontal: 'left', vertical: 'middle' };
+        r.getCell(3).value = rt.baseRate;
+        r.getCell(3).numFmt = '0.000';
+        r.getCell(3).alignment = { horizontal: 'right', vertical: 'middle' };
+        r.getCell(4).value = rt.note;
+        r.getCell(4).alignment = { horizontal: 'left', vertical: 'middle' };
+
+        for (let c = 1; c <= 4; c++) {
+          r.getCell(c).font = { name: '맑은 고딕', size: 10, color: { argb: 'FF111827' } };
+          r.getCell(c).border = thinBorder;
+        }
+      });
+
+      ['가입기간 하한(일)', '기간할증계수'].forEach((t, i) => {
+        const c = h2Row.getCell(6 + i);
+        c.value = t;
+        c.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+        c.alignment = { horizontal: 'center', vertical: 'middle' };
+        c.border = headerBorder;
+      });
+
+      FACTOR_TABLE.forEach((ft, idx) => {
+        const r = ws2.getRow(5 + idx);
+        r.getCell(6).value = ft.minDays;
+        r.getCell(6).numFmt = '#,##0';
+        r.getCell(6).alignment = { horizontal: 'right', vertical: 'middle' };
+        r.getCell(6).font = { name: '맑은 고딕', size: 10 };
+        r.getCell(6).border = thinBorder;
+
+        r.getCell(7).value = ft.factor;
+        r.getCell(7).numFmt = '0.00';
+        r.getCell(7).alignment = { horizontal: 'right', vertical: 'middle' };
+        r.getCell(7).font = { name: '맑은 고딕', size: 10 };
+        r.getCell(7).border = thinBorder;
+      });
+
+      ws2.mergeCells('A13:C13');
+      ws2.getCell('A13').value = '자기부담금 산정 기준';
+      ws2.getCell('A13').font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      ws2.getCell('A13').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+      ws2.getCell('A13').alignment = { horizontal: 'center', vertical: 'middle' };
+      ws2.getRow(13).height = 24;
+      for (let c = 1; c <= 3; c++) ws2.getCell(13, c).border = headerBorder;
+
+      ws2.mergeCells('A14:B14');
+      ws2.getCell('A14').value = '순계약금액 대비 자기부담금 비율';
+      ws2.getCell('A14').font = { name: '맑은 고딕', size: 10 };
+      ws2.getCell('C14').value = DEDUCTIBLE_RATE;
+      ws2.getCell('C14').numFmt = '0.0%';
+      ws2.getCell('C14').font = { name: '맑은 고딕', size: 10, bold: true };
+      ws2.getCell('C14').alignment = { horizontal: 'right', vertical: 'middle' };
+      ws2.getRow(14).height = 22;
+      for (let c = 1; c <= 3; c++) ws2.getCell(14, c).border = thinBorder;
+
+      ws2.mergeCells('A15:B15');
+      ws2.getCell('A15').value = '자기부담금 최고 상한액(원)';
+      ws2.getCell('A15').font = { name: '맑은 고딕', size: 10 };
+      ws2.getCell('C15').value = DEDUCTIBLE_CAP;
+      ws2.getCell('C15').numFmt = '#,##0';
+      ws2.getCell('C15').font = { name: '맑은 고딕', size: 10, bold: true };
+      ws2.getCell('C15').alignment = { horizontal: 'right', vertical: 'middle' };
+      ws2.getRow(15).height = 22;
+      for (let c = 1; c <= 3; c++) ws2.getCell(15, c).border = thinBorder;
+
+      [12, 28, 15, 32, 4, 18, 15].forEach((w, i) => { ws2.getColumn(i + 1).width = w; });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, `국가유산수리_손해배상책임공제_산출내역_${getFormattedDate(false)}.xlsx`);
+    }
+
+    renderRefTables();
+    renderTable();
+  </script>
+</body>
+</html>
