@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>국가유산수리 손해배상책임공제 계산 대시보드</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+    @media print {
+      body { background: #ffffff !important; color: #000000 !important; font-size: 11px !important; }
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      .print-break-inside { break-inside: avoid; }
+      .print-shadow-none { box-shadow: none !important; border: 1px solid #94a3b8 !important; border-radius: 0 !important; }
+      table { border-collapse: collapse !important; width: 100% !important; }
+      th, td { border: 1px solid #cbd5e1 !important; padding: 6px 8px !important; font-size: 11px !important; }
+      @page { size: A4 landscape; margin: 12mm; }
+    }
+    .print-only { display: none; }
+  </style>
+</head>
+<body class="min-h-screen antialiased">
+  <!-- 상단 헤더 -->
+  <header class="bg-slate-900 text-white border-b border-slate-800 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300">
+          <i data-lucide="shield-check" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-lg sm:text-xl font-bold tracking-tight">국가유산수리 손해배상책임공제 계산 대시보드</h1>
+          <p class="text-xs text-slate-300">2026. 11. 12. 의무화 시행 확정 요율표 · 고시 제2026-149호 기준</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button id="btnExportExcel" type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition shadow-sm">
+          <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+          <span>엑셀 다운로드</span>
+        </button>
+        <button id="btnPrint" type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium transition shadow-sm">
+          <i data-lucide="printer" class="w-4 h-4"></i>
+          <span>인쇄 / PDF</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 인쇄 전용 헤더 -->
+  <div class="print-only max-w-7xl mx-auto mb-6 border-b-2 border-slate-800 pb-3">
+    <div class="flex justify-between items-end">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">국가유산수리 손해배상책임공제료 산출내역서</h1>
+        <p class="text-xs text-slate-600 mt-1">근거: 「국가유산수리 등에 관한 법률」 제34조의2, 시행령 제18조의4, 고시 제2026-149호 및 공제조합 확정 요율표</p>
+      </div>
+      <div class="text-right text-xs text-slate-600">
+        <div>출력일자: <span id="printDate"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 네비게이션 탭 -->
+  <nav class="bg-white border-b border-slate-200 sticky top-0 z-20 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-1 overflow-x-auto">
+      <button type="button" data-tab="calc" class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-emerald-600 text-emerald-700 whitespace-nowrap">
+        공제료 계산기 · 프로젝트 목록
+      </button>
+      <button type="button" data-tab="rates" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900 whitespace-nowrap">
+        확정 요율표 전체 (5종)
+      </button>
+      <button type="button" data-tab="guide" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900 whitespace-nowrap">
+        계약·보증 체크리스트 &amp; 법령
+      </button>
+    </div>
+  </nav>
+
+  <!-- 알림 토스트 -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 hidden px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-medium shadow-lg flex items-center gap-2 no-print">
+    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+    <span id="toastMsg">처리되었습니다.</span>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <!-- TAB 1: 계산기 & 프로젝트 목록 -->
+    <section id="tab-calc" class="space-y-6">
+      <!-- 상단 2단 레이아웃: 좌측 입력 폼 / 우측 KPI + 차트 -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 no-print">
+        <!-- 입력 카드 -->
+        <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4 print-shadow-none print-break-inside">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <i data-lucide="calculator" class="w-4 h-4 text-emerald-600"></i>
+              <span>계약 조건 입력</span>
+            </h2>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">실시간 산출</span>
+          </div>
+
+          <div>
+            <label for="inputProjectName" class="block text-xs font-semibold text-slate-700 mb-1">사업명 / 계약명</label>
+            <input id="inputProjectName" type="text" value="OO국가유산 보수공사 감리용역" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" placeholder="예: OO고택 보수공사 실측설계용역" />
+          </div>
+
+          <div>
+            <span class="block text-xs font-semibold text-slate-700 mb-1.5">계약 구분 (설계 · 감리 · 공사)</span>
+            <div class="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl mb-3">
+              <button type="button" data-division="design" class="div-btn py-2 px-2 rounded-lg text-xs font-semibold transition text-slate-600 hover:text-slate-900">설계 (실측)</button>
+              <button type="button" data-division="supervision" class="div-btn py-2 px-2 rounded-lg text-xs font-semibold transition bg-white text-emerald-700 shadow-sm">감리</button>
+              <button type="button" data-division="construction" class="div-btn py-2 px-2 rounded-lg text-xs font-semibold transition text-slate-600 hover:text-slate-900">공사 (수리)</button>
+            </div>
+            <label for="inputCategory" class="block text-xs font-semibold text-slate-700 mb-1">세부 유형</label>
+            <select id="inputCategory" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              <option value="survey">실측설계 (보수·정비·복원 공통)</option>
+              <option value="sup_nonres">일반 비상주감리 (지정·지정외·천연기념물)</option>
+              <option value="sup_res">일반 상주감리 (지정·지정외·천연기념물)</option>
+              <option value="sup_resp" selected>책임감리 (지정·지정외·천연기념물)</option>
+              <option value="repair_gen">수리업 - 일반 (보수단청·조경·단청/목/석/번와/미장/온돌)</option>
+              <option value="repair_spec">수리업 - 특수 (보존과학업·식물보호업)</option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="inputAmountMode" class="block text-xs font-semibold text-slate-700 mb-1">금액 입력 기준</label>
+              <select id="inputAmountMode" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                <option value="vat_inc">계약금액 (VAT 포함)</option>
+                <option value="vat_exc">순계약금액 (VAT·공제료 제외)</option>
+              </select>
+            </div>
+            <div>
+              <label for="inputDays" class="block text-xs font-semibold text-slate-700 mb-1">가입기간 (착수~수리완료, 일수)</label>
+              <input id="inputDays" type="number" min="1" max="3650" value="180" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              <p id="daysHelpText" class="text-[11px] text-emerald-700 font-medium mt-1">약 6.0개월 (0.49년)</p>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label for="inputAmount" class="block text-xs font-semibold text-slate-700">금액 (원)</label>
+              <div class="flex gap-1 no-print">
+                <button type="button" data-quick-amt="50000000" class="quick-amt text-[11px] px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">5천만</button>
+                <button type="button" data-quick-amt="100000000" class="quick-amt text-[11px] px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">1억</button>
+                <button type="button" data-quick-amt="400000000" class="quick-amt text-[11px] px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">4억</button>
+                <button type="button" data-quick-amt="1000000000" class="quick-amt text-[11px] px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">10억</button>
+              </div>
+            </div>
+            <input id="inputAmount" type="text" inputmode="numeric" value="440,000,000" class="w-full px-3 py-2 text-sm font-semibold rounded-lg border border-slate-300 tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <p class="text-[11px] text-slate-500 mt-1" id="amountHelpText">VAT 포함 금액 입력 시 1.1로 나누어 순계약금액을 자동 산출합니다.</p>
+          </div>
+
+          <div id="govMaterialWrap" class="hidden">
+            <label for="inputGovMaterial" class="block text-xs font-semibold text-slate-700 mb-1">관급자재비 (원, 수리업 해당 시 합산)</label>
+            <input id="inputGovMaterial" type="text" inputmode="numeric" value="0" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+
+          <div class="pt-1 flex gap-2 no-print">
+            <button id="btnAddProject" type="button" class="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition shadow-sm">
+              <i data-lucide="plus-circle" class="w-4 h-4"></i>
+              <span>산출 목록에 추가</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 결과 KPI + 비교 차트 -->
+        <div class="lg:col-span-7 space-y-5">
+          <!-- KPI 4종 -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 print-break-inside">
+            <div class="bg-emerald-600 text-white rounded-2xl p-4 shadow-sm print-shadow-none">
+              <div class="text-xs font-medium text-emerald-100">예상 공제료</div>
+              <div id="kpiFee" class="text-lg sm:text-xl font-bold mt-1 tabular-nums whitespace-nowrap">-</div>
+              <div id="kpiRateText" class="text-[11px] text-emerald-100 mt-1">요율 -%</div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm print-shadow-none">
+              <div class="text-xs font-medium text-slate-500">공제가입금액 (순계약)</div>
+              <div id="kpiNetAmt" class="text-base sm:text-lg font-bold text-slate-900 mt-1 tabular-nums whitespace-nowrap">-</div>
+              <div id="kpiBracket" class="text-[11px] text-slate-500 mt-1">구간: -</div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm print-shadow-none">
+              <div class="text-xs font-medium text-slate-500">자기부담금 상한 (1%)</div>
+              <div id="kpiDeductible" class="text-base sm:text-lg font-bold text-slate-900 mt-1 tabular-nums whitespace-nowrap">-</div>
+              <div class="text-[11px] text-slate-500 mt-1">최대 1,000만 원</div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm print-shadow-none">
+              <div class="text-xs font-medium text-slate-500">적용 기간 / 가산</div>
+              <div id="kpiPeriod" class="text-lg sm:text-xl font-bold text-slate-900 mt-1 tabular-nums">-</div>
+              <div id="kpiExtraYears" class="text-[11px] text-slate-500 mt-1">기본 3년 이내</div>
+            </div>
+          </div>
+
+          <!-- 산출 근거 상세 배너 -->
+          <div id="calcFormulaBanner" class="bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-700 flex flex-wrap items-center justify-between gap-2 print-shadow-none">
+            <span id="formulaDetail">산출식: 순계약금액 × 적용요율</span>
+            <span class="font-medium text-slate-500">보상한도: 사고 1건당 및 총사고 = 공제가입금액 한도</span>
+          </div>
+
+          <!-- 업종별 요율/공제료 비교 차트 -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 print-shadow-none print-break-inside">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-bold text-slate-900">동일 순계약금액 기준 업종별 공제료 비교</h3>
+              <span class="text-xs text-slate-500">단위: 원</span>
+            </div>
+            <div class="relative h-64">
+              <canvas id="comparisonChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 다건 프로젝트 일괄 관리 테이블 -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print-shadow-none print-break-inside">
+        <div class="px-5 py-4 border-b border-slate-200 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-base font-bold text-slate-900">다건 프로젝트 공제료 산출 목록</h2>
+              <p class="text-xs text-slate-500 mt-0.5">설계·감리·공사 구분별로 필터링하여 확인하고 엑셀·인쇄로 출력할 수 있습니다.</p>
+            </div>
+            <div class="flex items-center gap-2 no-print">
+              <button id="btnResetSample" type="button" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 text-xs font-medium text-slate-700">예시 복원</button>
+              <button id="btnClearList" type="button" class="px-3 py-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-xs font-medium text-rose-600">목록 비우기</button>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <div class="flex flex-wrap items-center gap-1.5 no-print">
+              <button type="button" data-list-filter="all" class="list-filter-btn px-3 py-1 rounded-full text-xs font-semibold bg-slate-900 text-white">전체</button>
+              <button type="button" data-list-filter="design" class="list-filter-btn px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200">설계</button>
+              <button type="button" data-list-filter="supervision" class="list-filter-btn px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200">감리</button>
+              <button type="button" data-list-filter="construction" class="list-filter-btn px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200">공사</button>
+            </div>
+            <div id="divisionSummary" class="flex flex-wrap items-center gap-2 text-xs"></div>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left">
+            <thead class="bg-slate-50 text-slate-600 text-xs uppercase border-b border-slate-200">
+              <tr>
+                <th class="px-4 py-3 font-semibold text-center">구분</th>
+                <th class="px-4 py-3 font-semibold">사업명 / 계약명</th>
+                <th class="px-4 py-3 font-semibold">세부 유형</th>
+                <th class="px-4 py-3 font-semibold text-right">순계약금액</th>
+                <th class="px-4 py-3 font-semibold text-center">기간(일 / 환산월)</th>
+                <th class="px-4 py-3 font-semibold text-right">적용요율</th>
+                <th class="px-4 py-3 font-semibold text-right">예상 공제료</th>
+                <th class="px-4 py-3 font-semibold text-right">자기부담금 상한</th>
+                <th class="px-4 py-3 font-semibold text-center no-print">관리</th>
+              </tr>
+            </thead>
+            <tbody id="projectTableBody" class="divide-y divide-slate-100"></tbody>
+            <tfoot class="bg-slate-50 border-t-2 border-slate-200 font-bold text-slate-900">
+              <tr>
+                <td class="px-4 py-3" colspan="3">합계 (<span id="totalCount">0</span>건)</td>
+                <td id="totalNetAmt" class="px-4 py-3 text-right tabular-nums">0원</td>
+                <td class="px-4 py-3"></td>
+                <td class="px-4 py-3"></td>
+                <td id="totalFee" class="px-4 py-3 text-right text-emerald-700 tabular-nums">0원</td>
+                <td class="px-4 py-3"></td>
+                <td class="px-4 py-3 no-print"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- 인쇄 시 적용 요율표 근거 -->
+      <div id="printApplicableRates" class="print-only mt-5 space-y-3"></div>
+
+      <!-- 인쇄 시 확인란 -->
+      <div class="print-only mt-8 pt-4 border-t border-slate-300 flex justify-between text-xs text-slate-700">
+        <div>※ 가입기간은 용역 종료일이 아닌 <strong>국가유산 수리 완료일까지</strong>로 설정해야 합니다. (시행령 제18조의4제2항)</div>
+        <div class="text-right font-semibold">작성자 / 확인자: ________________ (인)</div>
+      </div>
+    </section>
+
+    <!-- TAB 2: 확정 요율표 전체 조회 -->
+    <section id="tab-rates" class="hidden space-y-6">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div>
+            <h2 class="text-base font-bold text-slate-900">국가유산수리 손해배상책임공제 확정 요율표 (전체 5종)</h2>
+            <p class="text-xs text-slate-500 mt-0.5">기본요율 적용기간은 3년이며, 초과 시 가산요율이 적용됩니다. (단위: %)</p>
+          </div>
+          <select id="rateFilterSelect" class="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white">
+            <option value="all">전체 보기</option>
+            <option value="repair">1. 수리업 공제요율</option>
+            <option value="survey">2. 실측설계 공제요율</option>
+            <option value="sup_nonres">3. 일반 비상주감리</option>
+            <option value="sup_res">4. 일반 상주감리</option>
+            <option value="sup_resp">5. 책임감리</option>
+          </select>
+        </div>
+        <div id="rateTablesContainer" class="space-y-6"></div>
+      </div>
+    </section>
+
+    <!-- TAB 3: 계약·보증 체크리스트 & 법령 -->
+    <section id="tab-guide" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- 체크리스트 -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <i data-lucide="clipboard-check" class="w-4 h-4 text-emerald-600"></i>
+            <span>설계·감리 계약 시 증권 발급 체크리스트</span>
+          </h2>
+          <ul class="space-y-3 text-sm text-slate-700">
+            <li class="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-bold shrink-0">필수 1</span>
+              <div><strong>계약보증서와 별개 발급:</strong> 일반 계약보증서(이행보증)는 손해배상책임공제 의무를 대체할 수 없으므로 반드시 별도 공제증권을 제출해야 합니다.</div>
+            </li>
+            <li class="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-bold shrink-0">필수 2</span>
+              <div><strong>가입기간 종기 확인:</strong> 실측설계·감리 모두 용역 종료일이 아니라 <strong>해당 국가유산 수리 착수일~수리 완료일</strong>까지로 가입해야 합니다.</div>
+            </li>
+            <li class="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-bold shrink-0">필수 3</span>
+              <div><strong>제출 시점:</strong> 2026년 11월 12일 이후 체결 계약(수의계약·소규모 포함)은 <strong>계약 체결 시</strong> 발주자에게 증권을 제출합니다.</div>
+            </li>
+            <li class="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-bold shrink-0">변경</span>
+              <div><strong>설계변경 증감 배서:</strong> 순계약금액이 최초 가입금액 대비 <strong>10% 초과</strong> 증감 시 증액·감액 배서가 필요합니다. (고시 제4조제2항)</div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- 법령 및 과태료 -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <i data-lucide="scale" class="w-4 h-4 text-slate-700"></i>
+            <span>관련 법령·과태료 및 조합 문의처</span>
+          </h2>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm border border-slate-200 rounded-lg overflow-hidden">
+              <thead class="bg-slate-50 text-xs text-slate-600">
+                <tr>
+                  <th class="px-3 py-2 text-left border-b">미가입 위반 횟수 (최근 3년)</th>
+                  <th class="px-3 py-2 text-right border-b">과태료 금액 (시행령 별표 12)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <tr><td class="px-3 py-2">1차 위반</td><td class="px-3 py-2 text-right font-semibold">100만 원</td></tr>
+                <tr><td class="px-3 py-2">2차 위반</td><td class="px-3 py-2 text-right font-semibold">150만 원</td></tr>
+                <tr><td class="px-3 py-2">3차 이상 위반</td><td class="px-3 py-2 text-right font-semibold text-rose-600">200만 원</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 space-y-1.5">
+            <div class="font-bold text-slate-900 text-sm">국가유산수리공제조합 안내</div>
+            <div>• <strong>가입 절차:</strong> 계약서·공제신청서 메일/팩스 송부 → 심사 → 계좌이체 납부 → 증서 발급(조달청 전자전송·PC 출력)</div>
+            <div>• <strong>대표전화:</strong> 02-584-1866 (내선 3) · <strong>팩스:</strong> 02-584-1867 · <strong>이메일:</strong> nhfc2023@naver.com</div>
+            <div>• <strong>홈페이지:</strong> www.nhfc.or.kr</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-2 text-xs text-slate-500 text-center no-print">
+    ※ 본 대시보드의 산출 결과는 2026. 11. 12. 시행 확정 요율표 기준 참고용 추정치이며, 실제 공제료 및 가입 조건은 국가유산수리공제조합 또는 손해보험회사 심사 결과에 따릅니다.
+  </footer>
+
+  <script>
+    // 확정 요율표 데이터 (손해배상책임공제 요율.pdf 기준, 단위: %, 적용기간 3년)
+    const RATE_DATA = {
+      repair_gen: {
+        label: '수리업 (일반 8개 업종)',
+        group: 'repair',
+        note: '보수단청업·조경업·단청/목/석/번와/미장/온돌공사업',
+        brackets: [
+          { label: '5억 원 이하', max: 500000000, inclusiveMax: true, base: 0.840, add: 0.064 },
+          { label: '5억 초과 ~ 7억 이하', max: 700000000, inclusiveMax: true, base: 0.827, add: 0.063 },
+          { label: '7억 초과 ~ 10억 이하', max: 1000000000, inclusiveMax: true, base: 0.814, add: 0.062 },
+          { label: '10억 초과 ~ 20억 이하', max: 2000000000, inclusiveMax: true, base: 0.791, add: 0.061 },
+          { label: '20억 초과 ~ 30억 이하', max: 3000000000, inclusiveMax: true, base: 0.763, add: 0.059 },
+          { label: '30억 초과 ~ 50억 이하', max: 5000000000, inclusiveMax: true, base: 0.738, add: 0.057 },
+          { label: '50억 초과 ~ 100억 이하', max: Infinity, inclusiveMax: true, base: 0.715, add: 0.055 }
+        ]
+      },
+      repair_spec: {
+        label: '수리업 (보존과학·식물보호)',
+        group: 'repair',
+        note: '보존과학업·식물보호업',
+        brackets: [
+          { label: '5억 원 이하', max: 500000000, inclusiveMax: true, base: 0.673, add: 0.051 },
+          { label: '5억 초과 ~ 7억 이하', max: 700000000, inclusiveMax: true, base: 0.662, add: 0.050 },
+          { label: '7억 초과 ~ 10억 이하', max: 1000000000, inclusiveMax: true, base: 0.652, add: 0.049 },
+          { label: '10억 초과 ~ 20억 이하', max: 2000000000, inclusiveMax: true, base: 0.633, add: 0.049 },
+          { label: '20억 초과 ~ 30억 이하', max: 3000000000, inclusiveMax: true, base: 0.611, add: 0.047 },
+          { label: '30억 초과 ~ 50억 이하', max: 5000000000, inclusiveMax: true, base: 0.591, add: 0.045 },
+          { label: '50억 초과 ~ 100억 이하', max: Infinity, inclusiveMax: true, base: 0.572, add: 0.044 }
+        ]
+      },
+      survey: {
+        label: '실측설계 (보수·정비·복원)',
+        group: 'survey',
+        note: '보수·정비·복원 공통',
+        brackets: [
+          { label: '3억 원 미만', max: 300000000, inclusiveMax: false, base: 0.474, add: 0.044 },
+          { label: '3억 이상 ~ 5억 미만', max: 500000000, inclusiveMax: false, base: 0.468, add: 0.044 },
+          { label: '5억 이상 ~ 7억 미만', max: 700000000, inclusiveMax: false, base: 0.461, add: 0.043 },
+          { label: '7억 이상 ~ 10억 미만', max: 1000000000, inclusiveMax: false, base: 0.454, add: 0.042 },
+          { label: '10억 이상 ~ 20억 미만', max: 2000000000, inclusiveMax: false, base: 0.441, add: 0.041 },
+          { label: '20억 이상 ~ 30억 미만', max: 3000000000, inclusiveMax: false, base: 0.426, add: 0.041 },
+          { label: '30억 이상 ~ 40억 미만', max: 4000000000, inclusiveMax: false, base: 0.413, add: 0.038 },
+          { label: '40억 이상 ~ 50억 미만', max: 5000000000, inclusiveMax: false, base: 0.374, add: 0.036 },
+          { label: '50억 초과 ~ 120억 이하', max: Infinity, inclusiveMax: true, base: 0.336, add: 0.033 }
+        ]
+      },
+      sup_nonres: {
+        label: '일반 비상주감리',
+        group: 'sup_nonres',
+        note: '지정국가유산, 지정외 국가유산, 천연기념물',
+        brackets: [
+          { label: '3억 원 미만', max: 300000000, inclusiveMax: false, base: 0.409, add: 0.064 },
+          { label: '3억 이상 ~ 5억 미만', max: 500000000, inclusiveMax: false, base: 0.405, add: 0.064 },
+          { label: '5억 이상 ~ 7억 미만', max: 700000000, inclusiveMax: false, base: 0.401, add: 0.062 },
+          { label: '7억 이상 ~ 10억 미만', max: 1000000000, inclusiveMax: false, base: 0.396, add: 0.062 },
+          { label: '10억 이상 ~ 20억 미만', max: 2000000000, inclusiveMax: false, base: 0.392, add: 0.061 },
+          { label: '20억 이상 ~ 30억 미만', max: 3000000000, inclusiveMax: false, base: 0.388, add: 0.061 },
+          { label: '30억 이상 ~ 40억 미만', max: 4000000000, inclusiveMax: false, base: 0.384, add: 0.060 },
+          { label: '40억 이상 ~ 50억 미만', max: 5000000000, inclusiveMax: false, base: 0.380, add: 0.059 },
+          { label: '50억 초과 ~ 120억 이하', max: Infinity, inclusiveMax: true, base: 0.376, add: 0.059 }
+        ]
+      },
+      sup_res: {
+        label: '일반 상주감리',
+        group: 'sup_res',
+        note: '지정국가유산, 지정외 국가유산, 천연기념물',
+        brackets: [
+          { label: '3억 원 미만', max: 300000000, inclusiveMax: false, base: 0.544, add: 0.096 },
+          { label: '3억 이상 ~ 5억 미만', max: 500000000, inclusiveMax: false, base: 0.540, add: 0.085 },
+          { label: '5억 이상 ~ 7억 미만', max: 700000000, inclusiveMax: false, base: 0.538, add: 0.085 },
+          { label: '7억 이상 ~ 10억 미만', max: 1000000000, inclusiveMax: false, base: 0.530, add: 0.084 },
+          { label: '10억 이상 ~ 20억 미만', max: 2000000000, inclusiveMax: false, base: 0.513, add: 0.081 },
+          { label: '20억 이상 ~ 30억 미만', max: 3000000000, inclusiveMax: false, base: 0.495, add: 0.079 },
+          { label: '30억 이상 ~ 40억 미만', max: 4000000000, inclusiveMax: false, base: 0.480, add: 0.076 },
+          { label: '40억 이상 ~ 50억 미만', max: 5000000000, inclusiveMax: false, base: 0.432, add: 0.071 },
+          { label: '50억 초과 ~ 120억 이하', max: Infinity, inclusiveMax: true, base: 0.385, add: 0.064 }
+        ]
+      },
+      sup_resp: {
+        label: '책임감리',
+        group: 'sup_resp',
+        note: '지정국가유산, 지정외 국가유산, 천연기념물',
+        brackets: [
+          { label: '3억 원 미만', max: 300000000, inclusiveMax: false, base: 0.680, add: 0.069 },
+          { label: '3억 이상 ~ 5억 미만', max: 500000000, inclusiveMax: false, base: 0.675, add: 0.068 },
+          { label: '5억 이상 ~ 7억 미만', max: 700000000, inclusiveMax: false, base: 0.671, add: 0.067 },
+          { label: '7억 이상 ~ 10억 미만', max: 1000000000, inclusiveMax: false, base: 0.661, add: 0.066 },
+          { label: '10억 이상 ~ 20억 미만', max: 2000000000, inclusiveMax: false, base: 0.641, add: 0.065 },
+          { label: '20억 이상 ~ 30억 미만', max: 3000000000, inclusiveMax: false, base: 0.620, add: 0.063 },
+          { label: '30억 이상 ~ 40억 미만', max: 4000000000, inclusiveMax: false, base: 0.599, add: 0.060 },
+          { label: '40억 이상 ~ 50억 미만', max: 5000000000, inclusiveMax: false, base: 0.538, add: 0.056 },
+          { label: '50억 초과 ~ 120억 이하', max: Infinity, inclusiveMax: true, base: 0.478, add: 0.051 }
+        ]
+      }
+    };
+
+    const SAMPLE_PROJECTS = [
+      { id: 1, name: 'OO서원 보수정비 실측설계용역', category: 'survey', netAmt: 100000000, days: 540 },
+      { id: 2, name: 'OO고택 지붕보수 비상주감리', category: 'sup_nonres', netAmt: 45000000, days: 365 },
+      { id: 3, name: 'OO사 대웅전 해체보수 책임감리', category: 'sup_resp', netAmt: 400000000, days: 730 }
+    ];
+
+    let projects = [];
+    let chartInstance = null;
+    let activeDivision = 'supervision';
+    let listFilter = 'all';
+
+    const DIVISION_META = {
+      design: {
+        label: '설계',
+        badgeClass: 'bg-sky-100 text-sky-800',
+        categories: ['survey']
+      },
+      supervision: {
+        label: '감리',
+        badgeClass: 'bg-emerald-100 text-emerald-800',
+        categories: ['sup_nonres', 'sup_res', 'sup_resp']
+      },
+      construction: {
+        label: '공사',
+        badgeClass: 'bg-amber-100 text-amber-800',
+        categories: ['repair_gen', 'repair_spec']
+      }
+    };
+
+    function getDivisionByCategory(categoryKey) {
+      if (categoryKey === 'survey') return 'design';
+      if (categoryKey && categoryKey.startsWith('sup_')) return 'supervision';
+      return 'construction';
+    }
+
+    function setDivision(divKey) {
+      activeDivision = divKey;
+      document.querySelectorAll('.div-btn').forEach(btn => {
+        const isOn = btn.dataset.division === divKey;
+        btn.classList.toggle('bg-white', isOn);
+        btn.classList.toggle('text-emerald-700', isOn);
+        btn.classList.toggle('shadow-sm', isOn);
+        btn.classList.toggle('text-slate-600', !isOn);
+      });
+
+      const select = document.getElementById('inputCategory');
+      const allowed = DIVISION_META[divKey].categories;
+      Array.from(select.options).forEach(opt => {
+        const ok = allowed.includes(opt.value);
+        opt.hidden = !ok;
+        opt.disabled = !ok;
+      });
+      if (!allowed.includes(select.value)) {
+        select.value = allowed[0];
+      }
+      updateCalculatorUI();
+    }
+
+    function loadProjects() {
+      try {
+        const saved = localStorage.getItem('heritage_deduction_projects_v1');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            projects = parsed;
+            return;
+          }
+        }
+      } catch (e) {}
+      projects = SAMPLE_PROJECTS.map(p => ({ ...p }));
+    }
+
+    function saveProjects() {
+      try {
+        localStorage.setItem('heritage_deduction_projects_v1', JSON.stringify(projects));
+      } catch (e) {}
+    }
+
+    function parseNum(str) {
+      const cleaned = String(str || '').replace(/[^0-9]/g, '');
+      return cleaned ? parseInt(cleaned, 10) : 0;
+    }
+
+    function fmtWon(num) {
+      return Math.round(num || 0).toLocaleString('ko-KR') + '원';
+    }
+
+    function findBracket(categoryKey, netAmt) {
+      const cat = RATE_DATA[categoryKey];
+      if (!cat) return null;
+      for (const b of cat.brackets) {
+        if (b.inclusiveMax ? netAmt <= b.max : netAmt < b.max) {
+          return b;
+        }
+      }
+      return cat.brackets[cat.brackets.length - 1];
+    }
+
+    function getProjectDays(p) {
+      if (p && p.days != null) return Math.max(1, Number(p.days) || 1);
+      if (p && p.months != null) return Math.max(1, Math.round((Number(p.months) || 12) * 30));
+      return 180;
+    }
+
+    function calculateDeduction(categoryKey, netAmt, days) {
+      const safeNet = Math.max(0, netAmt || 0);
+      const safeDays = Math.max(1, days || 1);
+      const bracket = findBracket(categoryKey, safeNet);
+      const extraYears = safeDays > 1095 ? Math.ceil((safeDays - 1095) / 365) : 0;
+      const appliedRate = bracket ? +(bracket.base + bracket.add * extraYears).toFixed(3) : 0;
+      const fee = Math.round(safeNet * (appliedRate / 100));
+      const deductible = Math.min(Math.round(safeNet * 0.01), 10000000);
+      return {
+        bracketLabel: bracket ? bracket.label : '-',
+        baseRate: bracket ? bracket.base : 0,
+        addRate: bracket ? bracket.add : 0,
+        extraYears,
+        appliedRate,
+        fee,
+        deductible
+      };
+    }
+
+    function getCurrentInputValues() {
+      const name = document.getElementById('inputProjectName').value.trim() || '미지정 사업';
+      const category = document.getElementById('inputCategory').value;
+      const mode = document.getElementById('inputAmountMode').value;
+      const rawAmt = parseNum(document.getElementById('inputAmount').value);
+      const govMat = category.startsWith('repair_') ? parseNum(document.getElementById('inputGovMaterial').value) : 0;
+      const days = Math.max(1, parseInt(document.getElementById('inputDays').value, 10) || 1);
+      const contractNet = mode === 'vat_inc' ? Math.round(rawAmt / 1.1) : rawAmt;
+      const netAmt = contractNet + govMat;
+      return { name, category, mode, rawAmt, govMat, days, netAmt };
+    }
+
+    function updateCalculatorUI() {
+      const val = getCurrentInputValues();
+      const govWrap = document.getElementById('govMaterialWrap');
+      if (val.category.startsWith('repair_')) {
+        govWrap.classList.remove('hidden');
+      } else {
+        govWrap.classList.add('hidden');
+      }
+
+      const helpText = document.getElementById('amountHelpText');
+      helpText.textContent = val.mode === 'vat_inc'
+        ? 'VAT 포함 금액 입력 시 1.1로 나누어 순계약금액을 자동 산출합니다.'
+        : '부가가치세 및 공제료를 제외한 순계약금액을 그대로 적용합니다.';
+
+      const approxMonths = (val.days / 30).toFixed(1);
+      const approxYears = (val.days / 365).toFixed(2);
+      document.getElementById('daysHelpText').textContent = `약 ${approxMonths}개월 (${approxYears}년) 자동 환산`;
+
+      const res = calculateDeduction(val.category, val.netAmt, val.days);
+
+      document.getElementById('kpiFee').textContent = fmtWon(res.fee);
+      document.getElementById('kpiRateText').textContent = `적용요율 ${res.appliedRate.toFixed(3)}%`;
+      document.getElementById('kpiNetAmt').textContent = fmtWon(val.netAmt);
+      document.getElementById('kpiBracket').textContent = `구간: ${res.bracketLabel}`;
+      document.getElementById('kpiDeductible').textContent = fmtWon(res.deductible);
+      document.getElementById('kpiPeriod').textContent = `${val.days.toLocaleString('ko-KR')}일`;
+      document.getElementById('kpiExtraYears').textContent = res.extraYears > 0
+        ? `약 ${approxMonths}개월 · 3년 초과 +${res.extraYears}년 가산`
+        : `약 ${approxMonths}개월 · 기본 3년(1,095일) 이내`;
+
+      document.getElementById('formulaDetail').textContent =
+        `산출식: ${fmtWon(val.netAmt)} × (${res.baseRate.toFixed(3)}%${res.extraYears > 0 ? ` + ${res.addRate.toFixed(3)}%×${res.extraYears}년` : ''}) = ${fmtWon(res.fee)}`;
+
+      renderComparisonChart(val.netAmt, val.days, val.category);
+      renderRateTables(val.category, res.bracketLabel);
+      if (projects.length === 0) renderPrintApplicableRates([]);
+    }
+
+    function renderComparisonChart(netAmt, days, activeCategory) {
+      const ctx = document.getElementById('comparisonChart');
+      if (!ctx || typeof Chart === 'undefined') return;
+
+      const keys = ['survey', 'sup_nonres', 'sup_res', 'sup_resp', 'repair_spec', 'repair_gen'];
+      const labels = ['실측설계', '비상주감리', '상주감리', '책임감리', '수리(보존)', '수리(일반)'];
+      const fees = keys.map(k => calculateDeduction(k, netAmt, days).fee);
+      const colors = keys.map(k => k === activeCategory ? '#059669' : '#94a3b8');
+
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: '예상 공제료 (원)',
+            data: fees,
+            backgroundColor: colors,
+            borderRadius: 6,
+            maxBarThickness: 42
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (c) => ` ${Math.round(c.parsed.y).toLocaleString('ko-KR')}원`
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (v) => Number(v).toLocaleString('ko-KR')
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderProjectTable() {
+      const tbody = document.getElementById('projectTableBody');
+      let sumNet = 0;
+      let sumFee = 0;
+
+      const summary = {
+        design: { count: 0, fee: 0 },
+        supervision: { count: 0, fee: 0 },
+        construction: { count: 0, fee: 0 }
+      };
+      projects.forEach(p => {
+        const divKey = getDivisionByCategory(p.category);
+        const calc = calculateDeduction(p.category, p.netAmt, getProjectDays(p));
+        summary[divKey].count += 1;
+        summary[divKey].fee += calc.fee;
+      });
+      document.getElementById('divisionSummary').innerHTML = ['design', 'supervision', 'construction'].map(k => {
+        const m = DIVISION_META[k];
+        return `<span class="px-2.5 py-1 rounded-lg ${m.badgeClass} font-medium">${m.label} ${summary[k].count}건 · ${fmtWon(summary[k].fee)}</span>`;
+      }).join('');
+
+      const filtered = listFilter === 'all'
+        ? projects
+        : projects.filter(p => getDivisionByCategory(p.category) === listFilter);
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="px-4 py-8 text-center text-slate-400">해당 구분에 등록된 프로젝트가 없습니다.</td></tr>';
+      } else {
+        tbody.innerHTML = filtered.map(p => {
+          const pDays = getProjectDays(p);
+          const divKey = getDivisionByCategory(p.category);
+          const divMeta = DIVISION_META[divKey];
+          const calc = calculateDeduction(p.category, p.netAmt, pDays);
+          const catLabel = RATE_DATA[p.category] ? RATE_DATA[p.category].label : p.category;
+          sumNet += p.netAmt;
+          sumFee += calc.fee;
+          return `
+            <tr class="hover:bg-slate-50/70">
+              <td class="px-4 py-3 text-center"><span class="inline-block px-2 py-0.5 rounded-md text-xs font-semibold ${divMeta.badgeClass}">${divMeta.label}</span></td>
+              <td class="px-4 py-3 font-medium text-slate-900">${escapeHtml(p.name)}</td>
+              <td class="px-4 py-3 text-slate-600 text-xs">${escapeHtml(catLabel)}</td>
+              <td class="px-4 py-3 text-right tabular-nums">${fmtWon(p.netAmt)}</td>
+              <td class="px-4 py-3 text-center tabular-nums">${pDays.toLocaleString('ko-KR')}일 <span class="text-xs text-slate-500">(약 ${(pDays / 30).toFixed(1)}개월)</span></td>
+              <td class="px-4 py-3 text-right tabular-nums">${calc.appliedRate.toFixed(3)}%</td>
+              <td class="px-4 py-3 text-right font-bold text-emerald-700 tabular-nums">${fmtWon(calc.fee)}</td>
+              <td class="px-4 py-3 text-right text-slate-600 tabular-nums">${fmtWon(calc.deductible)}</td>
+              <td class="px-4 py-3 text-center no-print">
+                <button type="button" data-delete-id="${p.id}" class="delete-row-btn text-xs text-rose-600 hover:text-rose-800 font-medium px-2 py-1 rounded hover:bg-rose-50">삭제</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      document.getElementById('totalCount').textContent = filtered.length;
+      document.getElementById('totalNetAmt').textContent = fmtWon(sumNet);
+      document.getElementById('totalFee').textContent = fmtWon(sumFee);
+      renderPrintApplicableRates(filtered);
+    }
+
+    function renderPrintApplicableRates(filteredList) {
+      const box = document.getElementById('printApplicableRates');
+      if (!box) return;
+
+      let items = Array.isArray(filteredList) && filteredList.length > 0
+        ? filteredList.map(p => ({ category: p.category, netAmt: p.netAmt }))
+        : [];
+
+      if (items.length === 0) {
+        const cur = getCurrentInputValues();
+        items = [{ category: cur.category, netAmt: cur.netAmt }];
+      }
+
+      const usedByCat = new Map();
+      items.forEach(it => {
+        const b = findBracket(it.category, it.netAmt);
+        if (!usedByCat.has(it.category)) usedByCat.set(it.category, new Set());
+        if (b) usedByCat.get(it.category).add(b.label);
+      });
+
+      const sections = Array.from(usedByCat.entries()).map(([catKey, bracketSet]) => {
+        const data = RATE_DATA[catKey];
+        if (!data) return '';
+        const rowsHtml = data.brackets.map(b => {
+          const hit = bracketSet.has(b.label);
+          return `
+            <tr style="${hit ? 'background-color:#ecfdf5;font-weight:bold;color:#065f46;' : ''}">
+              <td>${b.label}${hit ? ' ✓ 적용' : ''}</td>
+              <td style="text-align:right;">${b.base.toFixed(3)}%</td>
+              <td style="text-align:right;">${b.add.toFixed(3)}%</td>
+              <td style="text-align:center;">3년</td>
+            </tr>
+          `;
+        }).join('');
+
+        return `
+          <div class="print-break-inside" style="margin-bottom:10px;">
+            <div style="font-size:11px;font-weight:bold;margin-bottom:4px;color:#0f172a;">
+              ■ 적용 요율표: ${escapeHtml(data.label)} <span style="font-weight:normal;color:#475569;">(${escapeHtml(data.note)})</span>
+            </div>
+            <table>
+              <thead>
+                <tr style="background-color:#f1f5f9;">
+                  <th style="text-align:left;">계약금액 구간</th>
+                  <th style="text-align:right;">기본요율</th>
+                  <th style="text-align:right;">3년 초과 가산요율</th>
+                  <th style="text-align:center;">기본 적용기간</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        `;
+      }).join('');
+
+      box.innerHTML = `
+        <div style="border-top:1px solid #94a3b8;padding-top:10px;">
+          <div style="font-size:12px;font-weight:bold;margin-bottom:6px;color:#0f172a;">[붙임] 해당 계약 적용 요율표 발췌 (공제조합 확정 요율표 기준)</div>
+          ${sections}
+        </div>
+      `;
+    }
+
+    function renderRateTables(activeCat, activeBracketLabel) {
+      const container = document.getElementById('rateTablesContainer');
+      const filter = document.getElementById('rateFilterSelect').value;
+
+      const entries = Object.entries(RATE_DATA).filter(([key, val]) => {
+        if (filter === 'all') return true;
+        if (filter === 'repair') return val.group === 'repair';
+        return key === filter;
+      });
+
+      container.innerHTML = entries.map(([key, data]) => {
+        const rows = data.brackets.map(b => {
+          const isCurrent = key === activeCat && b.label === activeBracketLabel;
+          return `
+            <tr class="${isCurrent ? 'bg-emerald-50 font-semibold text-emerald-900' : 'hover:bg-slate-50'}">
+              <td class="px-4 py-2.5 border-b border-slate-100">${b.label}${isCurrent ? ' <span class="ml-1 text-[11px] px-1.5 py-0.5 rounded bg-emerald-600 text-white">현재 선택</span>' : ''}</td>
+              <td class="px-4 py-2.5 border-b border-slate-100 text-right tabular-nums">${b.base.toFixed(3)}%</td>
+              <td class="px-4 py-2.5 border-b border-slate-100 text-right tabular-nums">${b.add.toFixed(3)}%</td>
+              <td class="px-4 py-2.5 border-b border-slate-100 text-center">3년</td>
+            </tr>
+          `;
+        }).join('');
+
+        return `
+          <div class="border border-slate-200 rounded-xl overflow-hidden">
+            <div class="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex flex-wrap justify-between items-center gap-2">
+              <span class="font-bold text-sm text-slate-900">${data.label}</span>
+              <span class="text-xs text-slate-500">${data.note}</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-white text-xs text-slate-500 border-b border-slate-200">
+                  <tr>
+                    <th class="px-4 py-2 text-left">계약금액 구간</th>
+                    <th class="px-4 py-2 text-right">기본요율</th>
+                    <th class="px-4 py-2 text-right">3년 초과 가산요율</th>
+                    <th class="px-4 py-2 text-center">기본 적용기간</th>
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastMsg').textContent = msg;
+      toast.classList.remove('hidden');
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => toast.classList.add('hidden'), 2600);
+    }
+
+    async function exportExcel() {
+      const targetList = listFilter === 'all'
+        ? projects
+        : projects.filter(p => getDivisionByCategory(p.category) === listFilter);
+
+      let sourceItems = targetList.map(p => ({
+        name: p.name,
+        category: p.category,
+        netAmt: p.netAmt,
+        days: getProjectDays(p)
+      }));
+
+      if (sourceItems.length === 0) {
+        const cur = getCurrentInputValues();
+        sourceItems = [{
+          name: cur.name,
+          category: cur.category,
+          netAmt: cur.netAmt,
+          days: cur.days
+        }];
+      }
+
+      const dataRows = sourceItems.map((item, idx) => {
+        const calc = calculateDeduction(item.category, item.netAmt, item.days);
+        return {
+          no: idx + 1,
+          division: DIVISION_META[getDivisionByCategory(item.category)].label,
+          name: item.name,
+          typeLabel: RATE_DATA[item.category]?.label || item.category,
+          netAmt: item.netAmt,
+          days: item.days,
+          months: Number((item.days / 30).toFixed(1)),
+          appliedRate: calc.appliedRate,
+          fee: calc.fee,
+          deductible: calc.deductible
+        };
+      });
+
+      const todayDisplay = new Date().toLocaleDateString('ko-KR');
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+
+      if (typeof ExcelJS !== 'undefined') {
+        try {
+          const wb = new ExcelJS.Workbook();
+          wb.creator = '국가유산수리 손해배상책임공제 계산 대시보드';
+          wb.created = new Date();
+
+          const ws = wb.addWorksheet('공제료 산출내역', {
+            pageSetup: {
+              paperSize: 9,
+              orientation: 'landscape',
+              fitToPage: true,
+              fitToWidth: 1,
+              fitToHeight: 0,
+              horizontalCentered: true,
+              margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 }
+            }
+          });
+
+          ws.columns = [
+            { width: 7 },
+            { width: 9 },
+            { width: 34 },
+            { width: 24 },
+            { width: 17 },
+            { width: 12 },
+            { width: 11 },
+            { width: 12 },
+            { width: 17 },
+            { width: 17 }
+          ];
+
+          // 제목 & 부제
+          ws.mergeCells('A1:J1');
+          const titleCell = ws.getCell('A1');
+          titleCell.value = '국가유산수리 손해배상책임공제료 산출내역서';
+          titleCell.font = { name: '맑은 고딕', size: 15, bold: true, color: { argb: 'FF0F172A' } };
+          titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+          ws.getRow(1).height = 30;
+
+          ws.mergeCells('A2:J2');
+          const subCell = ws.getCell('A2');
+          subCell.value = `근거: 「국가유산수리 등에 관한 법률」 제34조의2, 시행령 제18조의4, 고시 제2026-149호   |   출력일: ${todayDisplay}`;
+          subCell.font = { name: '맑은 고딕', size: 9, color: { argb: 'FF475569' } };
+          subCell.alignment = { horizontal: 'right', vertical: 'middle' };
+          ws.getRow(2).height = 18;
+
+          ws.getRow(3).height = 8;
+
+          // 헤더 행 (4행)
+          const headers = ['순번', '구분', '사업명 / 계약명', '세부 유형', '순계약금액(원)', '가입기간(일)', '환산(개월)', '적용요율(%)', '예상 공제료(원)', '자기부담금 상한(원)'];
+          const headerRow = ws.getRow(4);
+          headerRow.height = 26;
+          headers.forEach((h, i) => {
+            const c = headerRow.getCell(i + 1);
+            c.value = h;
+            c.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+            c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+            c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            c.border = {
+              top: { style: 'thin', color: { argb: 'FF1E293B' } },
+              bottom: { style: 'thin', color: { argb: 'FF1E293B' } },
+              left: { style: 'thin', color: { argb: 'FF475569' } },
+              right: { style: 'thin', color: { argb: 'FF475569' } }
+            };
+          });
+
+          const startRow = 5;
+          dataRows.forEach((r, idx) => {
+            const row = ws.getRow(startRow + idx);
+            row.height = 22;
+            const vals = [r.no, r.division, r.name, r.typeLabel, r.netAmt, r.days, r.months, r.appliedRate, r.fee, r.deductible];
+            vals.forEach((v, colIdx) => {
+              const c = row.getCell(colIdx + 1);
+              c.value = v;
+              c.font = { name: '맑은 고딕', size: 10, color: { argb: 'FF0F172A' }, bold: colIdx === 8 };
+              if (idx % 2 === 1) {
+                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+              }
+              c.border = {
+                top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+              };
+              if (colIdx === 0 || colIdx === 1 || colIdx === 5 || colIdx === 6) {
+                c.alignment = { horizontal: 'center', vertical: 'middle' };
+              } else if (colIdx === 2 || colIdx === 3) {
+                c.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+              } else {
+                c.alignment = { horizontal: 'right', vertical: 'middle' };
+              }
+              if (colIdx === 4 || colIdx === 5 || colIdx === 8 || colIdx === 9) {
+                c.numFmt = '#,##0';
+              } else if (colIdx === 6) {
+                c.numFmt = '0.0';
+              } else if (colIdx === 7) {
+                c.numFmt = '0.000';
+              }
+            });
+          });
+
+          // 합계 행
+          const endRow = startRow + dataRows.length - 1;
+          const totalRowIdx = endRow + 1;
+          const totalRow = ws.getRow(totalRowIdx);
+          totalRow.height = 24;
+          ws.mergeCells(`A${totalRowIdx}:D${totalRowIdx}`);
+          totalRow.getCell(1).value = `합 계 (총 ${dataRows.length}건)`;
+          totalRow.getCell(5).value = { formula: `SUM(E${startRow}:E${endRow})` };
+          totalRow.getCell(9).value = { formula: `SUM(I${startRow}:I${endRow})` };
+
+          for (let colIdx = 0; colIdx < 10; colIdx++) {
+            const c = totalRow.getCell(colIdx + 1);
+            c.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: colIdx === 8 ? 'FF047857' : 'FF0F172A' } };
+            c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECFDF5' } };
+            c.border = {
+              top: { style: 'medium', color: { argb: 'FF334155' } },
+              bottom: { style: 'medium', color: { argb: 'FF334155' } },
+              left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+            };
+            c.alignment = { horizontal: colIdx === 0 ? 'center' : 'right', vertical: 'middle' };
+            if (colIdx === 4 || colIdx === 8) {
+              c.numFmt = '#,##0';
+            }
+          }
+
+          // 하단 안내
+          const noteRowIdx = totalRowIdx + 2;
+          ws.mergeCells(`A${noteRowIdx}:J${noteRowIdx}`);
+          const noteCell = ws.getCell(`A${noteRowIdx}`);
+          noteCell.value = '※ 가입기간은 용역 종료일이 아닌 국가유산 수리 완료일까지로 설정해야 합니다. (시행령 제18조의4제2항)  |  ※ 참고용 산출내역으로 실제 공제료는 공제조합 심사 결과에 따릅니다.';
+          noteCell.font = { name: '맑은 고딕', size: 8.5, color: { argb: 'FF64748B' } };
+
+          // 시트 2: 확정요율표
+          const ws2 = wb.addWorksheet('확정요율표', {
+            pageSetup: {
+              paperSize: 9,
+              orientation: 'landscape',
+              fitToPage: true,
+              fitToWidth: 1,
+              fitToHeight: 0
+            }
+          });
+          ws2.columns = [
+            { width: 24 }, { width: 38 }, { width: 22 }, { width: 13 }, { width: 14 }, { width: 14 }
+          ];
+          ws2.mergeCells('A1:F1');
+          ws2.getCell('A1').value = '국가유산수리 손해배상책임공제 확정 요율표 (2026. 11. 12. 시행)';
+          ws2.getCell('A1').font = { name: '맑은 고딕', size: 13, bold: true };
+          ws2.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+          ws2.getRow(1).height = 26;
+
+          const h2 = ['업종 / 유형', '비고', '계약금액 구간', '기본요율(%)', '초과 가산요율(%)', '기본적용기간(년)'];
+          const hr2 = ws2.getRow(3);
+          hr2.height = 24;
+          h2.forEach((h, i) => {
+            const c = hr2.getCell(i + 1);
+            c.value = h;
+            c.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+            c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+            c.alignment = { horizontal: 'center', vertical: 'middle' };
+            c.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+          });
+
+          let r2Idx = 4;
+          Object.values(RATE_DATA).forEach(cat => {
+            cat.brackets.forEach(b => {
+              const row = ws2.getRow(r2Idx++);
+              row.height = 20;
+              [cat.label, cat.note, b.label, b.base, b.add, 3].forEach((v, ci) => {
+                const c = row.getCell(ci + 1);
+                c.value = v;
+                c.font = { name: '맑은 고딕', size: 9.5 };
+                c.border = {
+                  top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                  bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                  left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                  right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+                };
+                c.alignment = { horizontal: ci >= 3 ? (ci === 5 ? 'center' : 'right') : 'left', vertical: 'middle' };
+                if (ci === 3 || ci === 4) c.numFmt = '0.000';
+              });
+            });
+          });
+
+          const buffer = await wb.xlsx.writeBuffer();
+          const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `국가유산수리_손해배상책임공제_산출내역_${dateStr}.xlsx`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showToast('A4 출력용 엑셀(.xlsx) 양식이 다운로드되었습니다.');
+          return;
+        } catch (e) {}
+      }
+
+      // 오프라인/폴백: 서식·테두리·콤마가 포함된 UTF-8 Excel(.xls) 양식
+      const sumNet = dataRows.reduce((a, b) => a + b.netAmt, 0);
+      const sumFee = dataRows.reduce((a, b) => a + b.fee, 0);
+      const tableHtml = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            @page { size: A4 landscape; margin: 12mm; }
+            table { border-collapse: collapse; font-family: '맑은 고딕', sans-serif; font-size: 10pt; width: 100%; }
+            th { background-color: #1e293b; color: #ffffff; border: 1px solid #334155; padding: 6px; text-align: center; }
+            td { border: 1px solid #cbd5e1; padding: 5px 7px; }
+            .num { mso-number-format: "#,##0"; text-align: right; }
+            .rate { mso-number-format: "0.000"; text-align: right; }
+            .ctr { text-align: center; }
+            .total { background-color: #ecfdf5; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <table>
+            <tr><td colspan="10" style="font-size:15pt;font-weight:bold;text-align:center;border:none;padding:8px;">국가유산수리 손해배상책임공제료 산출내역서</td></tr>
+            <tr><td colspan="10" style="font-size:9pt;color:#475569;text-align:right;border:none;padding-bottom:8px;">출력일: ${todayDisplay}</td></tr>
+            <tr><th>순번</th><th>구분</th><th>사업명/계약명</th><th>세부 유형</th><th>순계약금액(원)</th><th>가입기간(일)</th><th>환산(개월)</th><th>적용요율(%)</th><th>예상 공제료(원)</th><th>자기부담금 상한(원)</th></tr>
+            ${dataRows.map(r => `<tr><td class="ctr">${r.no}</td><td class="ctr">${escapeHtml(r.division)}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.typeLabel)}</td><td class="num">${r.netAmt}</td><td class="num">${r.days}</td><td class="ctr">${r.months.toFixed(1)}</td><td class="rate">${r.appliedRate.toFixed(3)}</td><td class="num">${r.fee}</td><td class="num">${r.deductible}</td></tr>`).join('')}
+            <tr class="total"><td colspan="4" class="ctr">합 계 (${dataRows.length}건)</td><td class="num">${sumNet}</td><td></td><td></td><td></td><td class="num">${sumFee}</td><td></td></tr>
+          </table>
+        </body></html>`;
+      const blob = new Blob(['﻿' + tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `국가유산수리_손해배상책임공제_산출내역_${dateStr}.xls`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('A4 출력용 엑셀(.xls) 양식이 다운로드되었습니다.');
+    }
+
+    function init() {
+      loadProjects();
+      document.getElementById('printDate').textContent = new Date().toLocaleDateString('ko-KR');
+
+      if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+      }
+
+      // 탭 전환
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const target = btn.dataset.tab;
+          document.querySelectorAll('.tab-btn').forEach(b => {
+            b.classList.remove('border-emerald-600', 'text-emerald-700', 'font-semibold');
+            b.classList.add('border-transparent', 'text-slate-600', 'font-medium');
+          });
+          btn.classList.add('border-emerald-600', 'text-emerald-700', 'font-semibold');
+          btn.classList.remove('border-transparent', 'text-slate-600', 'font-medium');
+
+          ['calc', 'rates', 'guide'].forEach(t => {
+            document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== target);
+          });
+        });
+      });
+
+      // 입력 이벤트 바인딩
+      ['inputProjectName', 'inputCategory', 'inputAmountMode', 'inputDays'].forEach(id => {
+        document.getElementById(id).addEventListener('input', updateCalculatorUI);
+        document.getElementById(id).addEventListener('change', updateCalculatorUI);
+      });
+
+      ['inputAmount', 'inputGovMaterial'].forEach(id => {
+        const el = document.getElementById(id);
+        el.addEventListener('input', () => {
+          const num = parseNum(el.value);
+          el.value = num ? num.toLocaleString('ko-KR') : '0';
+          updateCalculatorUI();
+        });
+      });
+
+      document.querySelectorAll('.quick-amt').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const amt = parseInt(btn.dataset.quickAmt, 10);
+          document.getElementById('inputAmount').value = amt.toLocaleString('ko-KR');
+          updateCalculatorUI();
+        });
+      });
+
+      document.getElementById('rateFilterSelect').addEventListener('change', updateCalculatorUI);
+
+      document.getElementById('btnAddProject').addEventListener('click', () => {
+        const val = getCurrentInputValues();
+        projects.push({
+          id: Date.now(),
+          name: val.name,
+          category: val.category,
+          netAmt: val.netAmt,
+          days: val.days
+        });
+        saveProjects();
+        renderProjectTable();
+        showToast('산출 목록에 추가되었습니다.');
+      });
+
+      document.getElementById('projectTableBody').addEventListener('click', (e) => {
+        const btn = e.target.closest('.delete-row-btn');
+        if (!btn) return;
+        const id = Number(btn.dataset.deleteId);
+        projects = projects.filter(p => p.id !== id);
+        saveProjects();
+        renderProjectTable();
+        showToast('항목이 삭제되었습니다.');
+      });
+
+      document.getElementById('btnResetSample').addEventListener('click', () => {
+        projects = SAMPLE_PROJECTS.map(p => ({ ...p }));
+        saveProjects();
+        renderProjectTable();
+        showToast('예시 목록을 복원했습니다.');
+      });
+
+      document.getElementById('btnClearList').addEventListener('click', () => {
+        projects = [];
+        saveProjects();
+        renderProjectTable();
+        showToast('산출 목록을 비웠습니다.');
+      });
+
+      document.getElementById('btnExportExcel').addEventListener('click', exportExcel);
+      document.getElementById('btnPrint').addEventListener('click', () => window.print());
+
+      document.querySelectorAll('.div-btn').forEach(btn => {
+        btn.addEventListener('click', () => setDivision(btn.dataset.division));
+      });
+
+      document.querySelectorAll('.list-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          listFilter = btn.dataset.listFilter;
+          document.querySelectorAll('.list-filter-btn').forEach(b => {
+            const on = b.dataset.listFilter === listFilter;
+            b.classList.toggle('bg-slate-900', on);
+            b.classList.toggle('text-white', on);
+            b.classList.toggle('font-semibold', on);
+            b.classList.toggle('bg-slate-100', !on);
+            b.classList.toggle('text-slate-700', !on);
+            b.classList.toggle('font-medium', !on);
+          });
+          renderProjectTable();
+        });
+      });
+
+      renderProjectTable();
+      setDivision(getDivisionByCategory(document.getElementById('inputCategory').value));
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
